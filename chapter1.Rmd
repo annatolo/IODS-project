@@ -1,13 +1,23 @@
 
 # About the project
 
-*Write a short description about the course and add a link to your GitHub repository here. This is an R Markdown (.Rmd) file so you should use R Markdown syntax.*
+**PHD-302 Introduction to Open Data Science 2023!**
+
+*Check out my GitHub repository here: https://github.com/annatolo/IODS-project*
+
 
 ```{r}
-# This is a so-called "R chunk" where you can write R code.
 
 date()
 
 ```
-The text continues here.
+### My Reflections on the Course
+
+- **How am I feeling right now?** I'm feeling excited and a bit nervous about starting this course because absolutely everything about this is completely new to me.
+- **What do I expect to learn** I'm hoping to learn the basics of R and gain some general understanding of data science.
+-  **Where did I hear about the course?** I stumbled upon the course bu chance when scrolling through the curriculum and thought it sounded very interesting and useful.
+
+### My Learning Experiences So Far
+
+So far, I have found the **R for Health and Data Science** book and the **Exercise Set 1** to be an excellent resource for familiarising myself with R. Since I am a total beginner, *Chapter 2 - R basics* was my favourite, as comprehending Chapters 3-5 still require a bit more studying on my part... Everything to do with plots seems to be complicated! However, I think I like working with R Markdown in general.
 

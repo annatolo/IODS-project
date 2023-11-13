@@ -1,13 +1,155 @@
-# Insert chapter 2 title here
+# Unveiling Academic Performance: A Statistical Exploration of Learning Approaches and Outcomes Among University Students
 
-*Describe the work you have done this week and summarize your learning.*
+This week, after completing the data-wrangling exercise, I embarked on a statistical exploration of the **students2014** dataset, which involved importing, examining the structure, and graphically visualizing student ages and exam scores.
 
-- Describe your work and results clearly. 
-- Assume the reader has an introductory course level understanding of writing and reading R code as well as statistical methods.
-- Assume the reader has no previous knowledge of your data or the more advanced methods you are using.
+I used histogram to analyze the age distribution and score variability, noting the skewness and outliers that provide insights into the student demographic and academic achievement. Boxplots offered a gender-based comparison of exam points, revealing median performances and exceptional cases.
+
+Then, as per the instructions, I constructed a linear regression model to investigate the influence of students' learning approaches on exam scores. Despite the model's modest explanatory power, as indicated by an R-squared value of 4.07%, it did show some interesting points about the significance of the learning methods—deep, strategic, and surface—on academic outcomes.
+
+Finally, I utilized diagnostic plots to validate the regression model's assumptions, assessing linearity, normality, and the impact of influential data points. These visual tools illustrated the robustness of the model and any potential weaknesses in its fit to the data.
+
+Throughout this process, I enhanced my understanding of data visualization techniques, the interpretation of statistical models, and the critical evaluation of model assumptions. This endeavor sharpened my analytical skills, particularly in applying statistical concepts to real-world educational data using R.
 
 ```{r}
 date()
 ```
+## Reading and exploring the data
 
-Here we go again...
+I'm starting out by reading the students2014 data from my local folder.
+```{r}
+students2014 <- read.csv("/Users/annatolonen/Desktop/IODS-project/data/learning2014.csv", sep = ",")
+```
+Next, I'm moving onto displaying the structure and dimensions of the dataset.
+```{r}
+str(students2014)
+dim(students2014)
+```
+## Creating graphs
+
+I'm starting to show the graphical overview of the data by creating **histogram**s for numerical variables. First, the **ages** of the students...
+```{r}
+hist(students2014$Age)
+```
+
+**Description**: The histogram illustrates the distribution of ages among the students who participated in the survey. Each bar corresponds to an age interval, showing the number of students that fall into that age bracket.
+
+**Interpretation**:
+
+- *Central Tendency and Spread*: The histogram shows a concentration of students in the younger age groups, particularly in the range of early to mid-20s, which is common for a university setting.
+- *Skewness*: The distribution appears to be right-skewed, meaning there are fewer older students in the course. The tail extends to the right, indicating that while the majority of students are younger, there are a few students who are significantly older than the average.
+- *Outliers*: Any  bars far to the right,  might represent outliers or non-traditional students who are older than typical university age.
+
+Next, the **points** obtained...
+```{r}
+hist(students2014$Points)
+```
+
+**Description**: This histogram shows the distribution of exam points scored by students. Each bar represents the number of students that achieved a score within a specific range.
+
+**Interpretation**:
+
+- *Central Tendency*: The most common score range is centered around 20 to 25 points, indicating that this is where the majority of students' scores lie.
+- *Spread*: The distribution of scores spans from approximately 5 points to over 30, showing a wide range in performance among students.
+- *Skewness* : The distribution appears to be left-skewed, with a tail extending towards the lower end of points. This suggests that while most students scored around the middle range, a smaller number of students scored significantly lower.
+- *Outliers*: Any bars  isolated from the others towards the higher end of the scale,  could be considered outliers, representing students who scored much higher than their peers. These could be considered positive outliers. In the educational context, such outliers might indicate students who have a particularly strong grasp of the material, possibly due to prior knowledge, natural aptitude, or more effective study strategies. Conversely, isolated bars or data points at the lower end of the scale represent students who scored much lower than the majority. These would be negative outliers. Such outliers could suggest students who may have struggled with the course content or had external factors that negatively impacted their performance.
+
+  + Implications of Outliers: The presence of outliers, especially if there are many or they are extreme, can have implications for teaching and learning. For example, it might prompt an instructor to consider whether the course materials are accessible to all students or whether additional support could be offered. It might also reflect the need for course content adjustments or highlight the presence of particularly challenging topics that could be addressed differently in the future.
+
+  + Statistical Considerations: From a statistical perspective, outliers can affect the mean of the data, potentially skewing it away from the median. They can also impact the assumptions of certain statistical tests and models. For example, in regression analysis, outliers can disproportionately influence the slope of the regression line and the overall fit of the model, leading to misleading interpretations.
+
+For comparing the **distribution of exam point between female (F) and male (M) students**, I'm creating a **boxplot** graph.
+
+```{r}
+boxplot(Points ~ gender, data = students2014)
+```
+
+**Description**: The boxplot displays the distribution of exam points for students, segregated by gender. The central box of each plot represents the interquartile range (IQR) where the middle 50% of scores lie. The line within each box indicates the median score. The "whiskers" extend to the furthest points that are not considered outliers, and any points beyond the whiskers are plotted individually as potential outliers.
+
+**Interpretation**:
+
+- *Central Tendency*: The median scores, marked by the lines in the boxes, indicate the central tendency of exam points for each gender group. They appear to be similar for both groups, suggesting that median performance on the exam is not substantially different between genders.
+- *Variability*: The IQRs, represented by the height of the boxes, show the spread of the middle 50% of the scores. It seems that there is a similar range of scores for both genders, indicating comparable variability in exam performance.
+- *Outliers*: Any individual points that appear as dots outside of the whiskers are potential outliers. In the case of the female group, there's at least one score that is notably lower than the rest, signifying an outlier who scored significantly lower than other students.
+- *Overall Distribution*: The absence of outliers in the male group and the presence of outliers in the female group could be worth investigating further. It might suggest individual cases where additional support could be beneficial.
+
+Generally, if the goal is to ensure equitable outcomes across genders, the similarity in median and IQR might be encouraging, but the presence of outliers in the female group might warrant a closer look to understand their causes. It's also important to note that boxplots do not show the distribution's modality or skewness; hence, the presence of outliers does not necessarily imply a skewed distribution.
+
+Now, to show **the relationship between students' ages and their exam points**, I'm creating a **scatter plot**.
+```{r}
+plot(students2014$Age, students2014$Points)
+```
+
+**Description**: The scatter plot visualizes each student's exam points against their age. Each dot represents a student, with the horizontal position indicating their age and the vertical position indicating the number of points they scored on the exam.
+
+**Interpretation**:
+
+- *Trend*: The plot does *not* appear to show a clear linear relationship between age and exam points. The points are dispersed throughout, suggesting no strong correlation between a student's age and their performance on the exam.
+- *Clustering*: Most of the data points are clustered in the lower age range, reflecting the typical age demographic of university students. There's a high density of points where the age is between 20 and 30, which corresponds to the traditional age range for undergraduate students.
+- *Outliers*: There are some data points spread out across higher ages, representing older students. There do not seem to be any obvious patterns or anomalies with respect to their exam points when compared to the younger students.
+- *Variability*: There is variability in the exam points across all age groups, which seems consistent. This indicates that factors other than age are likely to be more predictive of exam performance.
+
+
+Interestingly, when considering the potential impact of maturity and life experience on academic performance, as suggested by the age variable in the scatter plot, the lack of a clear trend may indicate that these factors do not have a straightforward or linear relationship with exam scores in the context of this course.
+
+## Summarizing each variable
+```{r}
+summary(students2014)
+```
+
+The students2014 dataset reflects a student group with an age range from 17 to 55, indicating diversity in student demographics, though the average age is about 25, suggesting a predominantly young adult cohort. Attitudes towards statistics vary but generally lean positive, with a median score of 3.4 out of 5. Learning approaches show a tendency towards deeper, more strategic engagement, with less emphasis on surface-level learning, as indicated by the higher median scores for **Deep** and **Stra** and a lower median for **Surf**. Exam points are distributed across a wide range, from 7 to 33, with a median of 23, suggesting varied academic performance among the students.
+
+## Regression model using three variables of my choosing
+
+Now, I'm choosing three variables as explanatory variables and fitting a regression model where exam points is the target (dependent, outcome) variable. Given that *'Deep'*, *'Stra'*, and *'Surf'* represent different learning approaches and could potentially influence exam performance, they seem like reasonable choices for explanatory variables.
+
+**Fitting the linear regression model and showing its summary**
+```{r}
+model <- lm(Points ~ Deep + Stra + Surf, data = students2014)
+
+summary(model)
+```
+
+## Interpreting the summary of my fitted model
+
+To interpret the results, I'm applying the following principles:
+
+- **Coefficients**: Looking at the estimate for each variable to understand its impact on the exam points. A positive coefficient suggests that higher values of the variable are associated with higher exam points, while a negative coefficient suggests the opposite.
+  + The coefficient for **'Deep'** is -0.7443, indicating that, holding all other variables constant, a one-unit increase in the Deep score is associated with a 0.7443 point decrease in the exam score. However, this relationship is not statistically significant (p = 0.3915), suggesting that the Deep learning approach does not have a significant impact on exam points.
+  + The coefficient for **'Stra'** is 0.9878, implying that a more strategic approach to learning is associated with an increase in exam points. This coefficient approaches statistical significance (p = 0.0994), hinting at a potential positive relationship.
+  + The coefficient for **'Surf'** is -1.6296, suggesting that a higher surface approach score is associated with lower exam points. This coefficient is marginally significant (p = 0.0769), suggesting there may be some relationship between a surface learning approach and lower exam performance.
+- **Statistical Significance**: The *p-values* associated with each coefficient will indicate whether the variables have a statistically significant relationship with the exam points. Typically, a p-value less than 0.05 is considered statistically significant.
+  + None of the p-values for the learning approaches are below the conventional significance threshold of 0.05, although Stra and Surf have p-values close to this cutoff, indicating that there might be a relationship worth further investigation.
+- **Model Fit**: The R-squared value indicates how well the model explains the variability in the exam points. An R-squared value closer to 1 means the model explains a large portion of the variability.
+  + *Residuals*: The residuals, which are the differences between the observed values and the values predicted by the model, range from -15.12 to 10.32. The median closer to 0 suggests the model is somewhat centered on the data, but the wide range indicates there is considerable variability that the model is not capturing.
+  + *R-squared*: The R-squared value of 0.04071 means that approximately 4.07% of the variance in exam points is explained by the model. This is a relatively low value, suggesting that the model does not fit the data very well. It's indicating that the combination of 'Deep', 'Stra', and 'Surf' learning approaches explains only a small portion of the variation in students' exam points. In other words, most of the variability in exam points is due to other factors not included in the model.
+  + *Adjusted R-squared*: The adjusted R-squared is 0.02295, which adjusts the R-squared value based on the number of predictors in the model relative to the number of observations. It is also quite low, reinforcing the point that the model's explanatory power is limited.
+  
+## Producing diagnostic plots
+
+Generating diagnostic plots for the linear regression model and setting up the plotting area to display 4 plots (2x2 layout)
+```{r}
+par(mfrow = c(2, 2))
+plot(model)
+```
+
+Explanations for the plots above:
+
+1. **Residuals vs Fitted Values**: Helps check the linearity and homoscedasticity assumptions.
+2. **Normal Q-Q Plot**: Helps check the normality assumption of residuals.
+3. **Scale-Location (or Spread-Location) Plot**: Another check for homoscedasticity.
+4. **Residuals vs Leverage Plot**: Helps identify influential observations.
+
+Interpreting the plots:
+
+1. **Residuals vs Fitted Values**:
+  + *What We See*: The residuals do not show a clear pattern around the horizontal line, but there seems to be a slight funnel shape, with a spread that increases for higher fitted values.
+  + *Interpretation*: The lack of a clear pattern suggests that the relationship between the learning approaches and exam points is linear. However, the presence of a slight funnel shape might indicate that the variance of exam scores increases as the average score increases, which could be indicative of a more complex relationship at higher scores that isn't captured by a simple linear model.
+2. **Normal Q-Q Plot**:
+  + *What We See*: Most points lie on or very close to the line, but there are some deviations at the tails.
+  + *Interpretation*: The residuals mostly follow the expected line of a normal distribution, indicating that the assumption of normality is reasonable for this data. The deviations at the tails might represent a small number of students with unusual score patterns, which could be further explored to understand their impact on the overall model.
+3. **Scale-Location Plot**:
+  + *What We See*: The points are spread somewhat uniformly along the range of fitted values, although there might be a slight increase in spread on the right side.
+  + *Interpretation*: The relatively uniform spread of residuals across the range of fitted values suggests that the variance of exam scores is consistent across different average score levels, although the slight increase on the right may require further investigation, perhaps looking into whether students with higher average scores show more variability in their performance.
+4. **Residuals vs Leverage Plot**:
+  + *What We See*: There are no points with high leverage and large residuals. The Cook's distance lines do not indicate any points with a particularly high influence on the model.
+  + *Interpretation*: The plot shows that no students have an undue influence on the model, indicating that the model's findings are not being driven by a few atypical students. This suggests that the conclusions drawn from the model about the relationship between learning approaches and exam scores are likely to be robust to the influence of individual students.

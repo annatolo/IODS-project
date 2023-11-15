@@ -1,0 +1,224 @@
+# Chapter 3: Logistic regression
+
+```{r}
+date()
+```
+
+## Reading and exploring the data (Analysis step 2)
+
+I'm starting out by **reading** the students2014 data from my local folder (and loading the necessary libraries).
+
+```{r}
+library(tidyverse)
+
+joined_data <- read.csv("/Users/annatolonen/Desktop/IODS-project/data/joined_and_modified_data.csv")
+```
+
+Next, I'm **printing the names of the variables**.
+
+```{r}
+print(names(joined_data))
+```
+**Description** of the dataset: 
+The dataset used in this chapter is a compilation of information from two separate studies on student performance from secondary schools in Portugal, which has been merged to provide a comprehensive look at various factors that might impact student success. It includes demographic details, academic achievements, and specific lifestyle choices, with a particular focus on alcohol consumption patterns. The inclusion of variables such as average alcohol use (alc_use) and a binary indicator of high alcohol consumption (high_use) allows for an analysis of the potential influence of alcohol on academic performance. This dataset can be analysed to understand and possibly predict student performance in relation to their personal and social habits.
+
+## Choosing 4 variables and hypothesising (Analysis step 3)
+
+1. **Academic performance ('G3')**: Here I am assuming taht the final grade can be considered a strong indication of overall academic achievement.
+  - *My hypothesis*: Higher alcohol consumption (as indicated by alc_use and high_use) is negatively associated with academic performance. Students with high alcohol consumption will have lower final grades (G3) compared to their counterparts who consume less alcohol.
+2. **Free Time After School ('freetime')**: This variable indicates the amount of free time students have after school.
+  - *My hypothesis*: Students with more free time may have higher alcohol consumption. An abundance of unstructured time could lead to increased social activities where alcohol is present, thereby increasing alc_use.
+3. **Going Out With Friends ('goout')**: This indicates how often students go out with their friends.
+  - *My hypothesis*: There is a positive correlation between the frequency of going out with friends and alcohol consumption. Students who go out more often are more likely to engage in social drinking, thus having a higher alc_use score.
+4. **Study Time ('studytime')**: This variable reflects the amount of time spent studying every week.
+  - *My hypothesis*: Students who dedicate more time to studying will have lower alcohol consumption. A greater commitment to academics could correlate with more responsible drinking habits and a lower high_use designation.
+
+## Numerically and graphically exploring the chosen varaiables (Analysis step 4)
+
+```{r}
+# Numerically exploring the variables using summary for each
+summary(joined_data$G3)
+summary(joined_data$freetime) 
+summary(joined_data$goout)
+summary(joined_data$studytime)
+```
+
+- The average final grade (G3) is approximately 11.52 out of 20.
+- On average, students have a moderate amount of free time after school (freetime), with a mean of 3.22 on a scale of 1 to 5.
+- Students tend to go out with friends (goout) relatively frequently, with an average score of 3.12.
+- Average study time (studytime) is around 2.04, which suggests a few hours of study per week.
+- The mean alcohol consumption (alc_use) score is 1.89, which indicates low to moderate drinking on average.
+
+```{r}
+# Cross-tabulations of 'high_use' with 'freetime', 'goout', and 'studytime'
+table(joined_data$high_use, joined_data$freetime)
+table(joined_data$high_use, joined_data$goout)
+table(joined_data$high_use, joined_data$studytime)
+```
+
+- Students with less free time tend to have lower alcohol consumption (high_use is less frequent with a freetime score of 1).
+- Higher levels of going out (goout) are associated with higher alcohol consumption.
+- More study time (studytime) is associated with lower instances of high alcohol consumption (high_use).
+
+Next, for the **graphical exploration**, I'm going to create **bar plots** for 'the variables 'freetime', 'goout' and 'studytime' agains 'alc_use'.
+
+```{r}
+ggplot(joined_data, aes(x = freetime, y = alc_use)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(title = "Average Alcohol Consumption by Free Time", x = "Free Time", y = "Average Alcohol Use")
+
+ggplot(joined_data, aes(x = goout, y = alc_use)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(title = "Average Alcohol Consumption by Going Out", x = "Going Out", y = "Average Alcohol Use")
+
+ggplot(joined_data, aes(x = studytime, y = alc_use)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(title = "Average Alcohol Consumption by Study Time", x = "Study Time", y = "Average Alcohol Use")
+```
+
+- These bar plots indicate that *average alcohol consumption increases with more free time and higher frequency of going out*. This supports my hypothesis that more unstructured time and social activities could lead to higher alcohol consumption.
+- Conversely, there is an apparent decrease in average alcohol consumption with increased study time, which aligns with the hypothesis that *students who dedicate more time to studying may drink less*.
+
+To explore academic performance ('G3') agins 'high = use', I'm going to create **a box plot**.
+
+```{r}
+ggplot(joined_data, aes(x = as.factor(high_use), y = G3)) +
+  geom_boxplot() +
+  labs(title = "Final Grade (G3) by High Alcohol Consumption", x = "High Alcohol Use", y = "Final Grade (G3)")
+```
+
+- This box plot shows that students with high alcohol consumption tend to have a wider range and generally lower median grades compared to those with low alcohol consumption. This observation supports the hypothesis of *a negative association between alcohol consumption and academic performance*.
+
+Overall, the results of the exploration align with my previously stated hypotheses. There is an indication that higher alcohol consumption is related to lower academic performance, more free time, increased socialization with friends, and less study time.
+
+## Logistic regression analysis (Analysis step 5)
+
+```{r}
+# Fitting the logistic regression model using 'high_use' as the response variable
+# and G3, freetime, goout, and studytime as predictors
+model <- glm(high_use ~ G3 + freetime + goout + studytime, 
+             data = joined_data, family = "binomial")
+
+# Getting a summary of the fitted model
+summary(model)
+
+# Calculating and printing the odds ratios and confidence intervals for the coefficients
+exp_coef <- exp(coef(model))
+exp_confint <- exp(confint(model))
+
+# Creating a data frame to nicely format the odds ratios and their confidence intervals
+odds_ratio_df <- data.frame(
+  Variable = names(exp_coef),
+  OddsRatio = exp_coef,
+  Lower95CI = exp_confint[,1],
+  Upper95CI = exp_confint[,2]
+)
+
+# Printing the odds ratios and confidence intervals
+print(odds_ratio_df)
+
+# install.packages("broom")
+library(broom)
+
+# Tidying the model to include exponentiated coefficients (odds ratios) and confidence intervals
+tidy_model <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+
+# Printing the tidy model with odds ratios
+print(tidy_model)
+```
+
+Now, to **interpret**...
+
+- **Intercept: The odds ratio is 0.142, which represents the odds of high alcohol consumption when all other variables are held at zero. The p-value is significant (p = 0.011), suggesting that the model intercept is significantly different from zero.
+- **G3 (Final Grade)**:
+  - *Odds Ratio (OR)*: 0.966, suggesting a slight decrease in the odds of high alcohol consumption with better academic performance, although this is a very small effect.
+  - *95% Confidence Interval (CI)*: Ranges from 0.894 to 1.043, which includes 1, indicating the effect might not be statistically significant.
+  - *P-value*: 0.373, which is greater than the conventional threshold of 0.05 for statistical significance, confirming that the effect of final grades on high alcohol use is not statistically significant.
+- **Freetime**:
+  - *OR*: 1.114, suggesting a slight increase in the odds of high alcohol consumption with more free time.
+  - *CI*: Ranges from 0.852 to 1.458, which includes 1, indicating the effect might not be statistically significant.
+  - *P-value*: 0.430, which is not statistically significant.
+- **Going Out (Goout)**:
+  - *OR*: 2.016, indicating that the odds of high alcohol consumption are about twice as high for each additional unit increase in the goout score.
+  - *CI*: Ranges from 1.595 to 2.581, which does not include 1, indicating that this effect is statistically significant.
+  - *P-value*: 0.0001, which is highly statistically significant, providing strong evidence that going out with friends is positively associated with high alcohol consumption.
+- **Study Time**:
+  - *OR*: 0.554, suggesting that more study time is associated with lower odds of high alcohol consumption.
+  - *CI*: Ranges from 0.395 to 0.764, which does not include 1, indicating that this effect is statistically significant.
+  - *P-value*: 0.0005, which is also highly statistically significant, supporting the hypothesis that increased study time is associated with lower alcohol consumption.
+  
+In summary, the logistic regression analysis indicates that two of the variables, **goout** and **studytime**, have statistically significant associations with high alcohol consumption. Students who go out more often are more likely to have high alcohol consumption, while students who spend more time studying are less likely to. These results are in line with my hypotheses for these variables. However, academic performance (G3) and the amount of free time students have (freetime) do not show statistically significant effects on high alcohol consumption in this analysis.
+
+## Exploring the predictive power of my model (Analysis step 6)
+
+Now, I'm fitting my logistic regression model using only the predictors that were determined to be significant above.
+
+```{r}
+# Fitting the logistic regression model with significant predictors
+model <- glm(high_use ~ goout + studytime, data = joined_data, family = "binomial")
+
+# Making predictions on the training data
+joined_data$predicted_high_use <- if_else(predict(model, type = "response") > 0.5, TRUE, FALSE)
+
+# Creating a 2x2 cross-tabulation of predictions vs actual values
+confusion_matrix <- table(Actual = joined_data$high_use, Predicted = joined_data$predicted_high_use)
+
+# Calculating the total proportion of inaccurately classified individuals (the training error)
+training_error <- mean(joined_data$high_use != joined_data$predicted_high_use)
+
+# Determining the most frequent class in the actual data
+most_frequent_class <- names(which.max(table(joined_data$high_use)))
+
+# Calculating the error rate for the guessing strategy
+guessing_strategy_error <- mean(joined_data$high_use != most_frequent_class)
+
+# Printing the confusion matrix, training error, and guessing strategy error
+print(confusion_matrix)
+print(paste("Training error: ", training_error))
+print(paste("Guessing strategy error: ", guessing_strategy_error))
+
+# Creating a graphic visualization of actual values vs predictions
+ggplot(joined_data, aes(x = as.factor(high_use), fill = as.factor(predicted_high_use))) +
+  geom_bar(position = "fill") +
+  labs(title = "Actual vs Predicted High Alcohol Use", x = "Actual High Use", y = "Proportion", fill = "Predicted") +
+  scale_y_continuous(labels = scales::percent_format())
+```
+
+### Interpretations
+
+- **Confusion Matrix**: The confusion matrix shows that the model has a higher number of true negatives than true positives, indicating that it is better at predicting individuals with low alcohol use than high alcohol use. There are also a considerable number of false positives, where the model predicted high alcohol use but was incorrect. This could be an area to focus on for improving the model.
+- **Training Error**: The training error of approximately 0.245 indicates that about 24.5% of the predictions made by the model on the training data were incorrect. While this error rate is not trivial, it suggests that the model has learned some patterns from the data. It's important to consider this error rate in the context of the complexity of human behavior and the difficulty of predicting alcohol use.
+- **Guessing Strategy Error**: The guessing strategy error rate is 0.3, which means that simply guessing the most frequent class (in this case, low alcohol use) would result in an incorrect prediction 30% of the time. My model's training error is lower than the guessing strategy error, indicating that the logistic regression model is providing more accurate predictions than a naive guess based on the most common outcome.
+- **Bar Plot**: The bar plot visualizes the proportions of actual versus predicted high alcohol use. The larger proportion of red in the 'FALSE' actual high use category indicates that my model is more conservative, predicting 'False' more often than 'True'.
+- **Model vs. Guessing Strategy**: When comparing my model to the guessing strategy, my model outperforms the naive approach of always guessing the most frequent class. This demonstrates that my model, while not perfect, does provide valuable insights and can be a useful tool for understanding factors that contribute to high alcohol use among students.
+
+## 10-fold cross-validation on my model (Bonus)
+
+```{r}
+# Loading the necessary library for cross-validation
+library(boot)
+
+# Defining the logistic regression model formula
+model_formula <- high_use ~ goout + studytime
+
+# Creating the glm model for cross-validation
+glm_model <- glm(model_formula, data = joined_data, family = "binomial")
+
+# Performing 10-fold cross-validation using the cv.glm function
+set.seed(123)  # for reproducibility
+cv_results <- cv.glm(joined_data, glm_model, K = 10)
+
+# Printing the cross-validation results
+print(cv_results)
+
+# Calculating the average prediction error
+cv_error <- cv_results$delta[1]
+
+# Printing the average prediction error
+print(paste("10-fold CV average prediction error: ", cv_error))
+
+# Comparing to the model error from the Exercise Set
+exercise_set_error <- 0.26
+print(paste("Is the cross-validated model better than the Exercise Set model? ", cv_error < exercise_set_error))
+```
+It seems that my model does have a smaller prediction error using 10-fold cross-validation compared to the model from the Exercise Set. **Yay!**

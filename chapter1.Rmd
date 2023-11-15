@@ -1,5 +1,5 @@
 
-# About the project
+# Chapter 1: About the project
 
 **PHD-302 Introduction to Open Data Science 2023!**
 

@@ -1,4 +1,4 @@
-# Unveiling Academic Performance: A Statistical Exploration of Learning Approaches and Outcomes Among University Students
+# Chapter 2: Regression and model validation
 
 This week, after completing the data-wrangling exercise, I embarked on a statistical exploration of the **students2014** dataset, which involved importing, examining the structure, and graphically visualizing student ages and exam scores.
 

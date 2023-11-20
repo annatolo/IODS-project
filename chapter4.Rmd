@@ -1,0 +1,263 @@
+# Chapter 4: Boston Housing Data Analysis
+
+In this chapter, we explore the Boston Housing dataset, which comprises various attributes of housing areas around the Boston, Massachusetts area, as recorded in the 1970s. It's a rich dataset often used for understanding the housing market through statistical learning techniques. As per the assignment, I begin by loading the data and examining its structure—highlighting key variables like crime rates, property tax rates, and median home values. Next, I try to provide a visual and statistical summary, discussing each variable's distribution and interrelationships. Then, I standardized the data to prepare for more complex analyses, including clustering and linear discriminant analysis (LDA), which reveal insights into the socio-economic patterns affecting housing values.
+
+Through this assignment, I've learned new statistical learning techniques. I gained insights into housing market patterns by performing exploratory data analysis, standardization, clustering, and discriminant analysis, and enhanced my data visualization skills further.
+
+```{r}
+
+date()
+
+# Loading and Exploring the Boston Dataset
+library(MASS)
+data("Boston")
+str(Boston)
+dim(Boston)
+```
+
+##Graphical Overview of the Data
+
+Next I'm going to use 'pairs' to create pair-wise scatter plots for **an overview of relationships** and 'summary' to give **a statistical summary** of each variable. 
+
+```{r}
+pairs(Boston)
+summary(Boston)
+```
+###Distributions of the Variables
+
+- **Crime (`crim`)**: The distribution is highly right-skewed, with most suburbs exhibiting low crime rates, but a few have extremely high crime rates.
+- **Residential land zoned (`zn`)**: This variable is also right-skewed, indicating that many suburbs have no land zoned for large residential plots.
+- **Industrial acres (`indus`)**: Displays a more varied distribution with a noticeable peak around 18, suggesting a common proportion of industrial businesses across suburbs.
+- **Charles River dummy variable (`chas`)**: As a binary variable, the data shows that most suburbs do not border the river.
+- **Nitric oxides concentration (`nox`)**: Exhibits a slight right-skewness, suggesting that while most areas have moderate nitric oxide levels, some areas have significantly high levels.
+- **Average number of rooms (`rm`)**: Appears to be normally distributed, with most suburbs having around the median number of 6.2 rooms.
+- **Age (`age`)**: The distribution is left-skewed with many houses being older, peaking at 100 years.
+- **Distances to employment centers (`dis`)**: The right-skewed nature indicates that most suburbs are close to employment centers, with a few being much further away.
+- **Accessibility to radial highways (`rad`)**: The bimodal distribution suggests that suburbs are typically either very close or very far from highways.
+- **Property tax rate (`tax`)**: Also bimodal and likely correlated with `rad`, indicating variations in tax rates depending on highway accessibility.
+- **Pupil-teacher ratio by town (`ptratio`)**: Shows slight left-skewness, with most suburbs having a higher ratio.
+- **Proportion of blacks (`black`)**: This variable is left-skewed, with most areas having a high proportion, although some have significantly low proportions.
+- **Lower status of the population (`lstat`)**: Right-skewed, most suburbs have a lower proportion of lower-status population.
+- **Median value of homes (`medv`)**: Right-skewed with a ceiling effect at 50, indicating capped median values in the dataset.
+
+### Relationships Between Variables
+
+- **`rm` and `medv`**: A positive correlation suggests that suburbs with more rooms tend to have higher median home values.
+- **`lstat` and `medv`**: A visible negative correlation implies that suburbs with a higher percentage of lower status have lower home values.
+- **`nox` and `indus`**: A positive correlation indicates that more industrial areas have higher nitric oxide concentrations.
+- **`dis` and `nox`**: A negative correlation suggests that areas further from employment centers have lower concentrations of nitric oxides.
+- **`age` and `nox`**: There seems to be a trend where older houses are in areas with higher nitric oxide concentrations.
+- **`rad` and `tax`**: A high correlation indicates that suburbs with better highway access tend to have higher tax rates.
+
+## Standardization and Categorical Variable Creation
+
+```{r}
+# Installing and loading the caret package
+if (!require(caret)) {
+  install.packages("caret")
+  library(caret)
+}
+
+# Standardizing the dataset
+scaled_Boston <- scale(Boston)
+
+# Printing out summaries of the scaled data
+summary(scaled_Boston)
+
+# Creating a categorical variable of the crime rate using quantiles
+Boston$crime_cat <- cut(Boston$crim, breaks=quantile(Boston$crim, probs=seq(0, 1, by=0.25)), include.lowest=TRUE)
+
+# Dropping the old crime rate variable from the dataset
+Boston <- Boston[,-which(names(Boston) == "crim")]
+
+# Dividing the dataset into train and test sets (80% train, 20% test)
+trainIndex <- createDataPartition(Boston$crime_cat, p = .8, list = FALSE, times = 1)
+train_set <- Boston[trainIndex, ]
+test_set <- Boston[-trainIndex, ]
+
+```
+
+## Linear Discriminant Analysis (LDA)
+
+```{r}
+# Loading the MASS package for LDA
+library(MASS)
+
+# Fitting the LDA model using the categorical crime rate as the target variable
+lda_fit <- lda(crime_cat ~ ., data = train_set)
+
+# Summarizing the LDA fit
+lda_fit
+
+# Plotting the LDA model
+plot(lda_fit)
+```
+
+## Predictions and Cross-Tabulation using LDA
+
+```{r}
+# Saving the actual crime categories from the test set
+actual_crime_categories <- test_set$crime_cat
+
+# Removing the categorical crime variable from the test set
+
+# Using the LDA model to predict crime categories on the test set
+predicted_crime_categories <- predict(lda_fit, newdata=test_set)$class
+
+test_set <- test_set[,-which(names(test_set) == "crime_cat")]
+
+# Cross-tabulating the predicted vs actual crime categories
+confusion_matrix <- table(Predicted = predicted_crime_categories, Actual = actual_crime_categories)
+
+# Printing the confusion matrix
+confusion_matrix
+```
+Based on the confusion matrix above we can evaluate the performance of the classification models as follows:
+
+- **Low Crime Rate ([0, 0.082])**: The model predicted this category correctly 14 times, but incorrectly predicted it 2 times as medium-low crime ([0.082, 0.257]) and missed 9 instances which were actually medium-low crime.
+- **Medium-Low Crime Rate ([0.082, 0.257])**: 13 instances were correctly predicted, but 9 instances were predicted as low crime, and 2 instances were predicted as medium crime ([0.257, 3.68]).
+- **Medium Crime Rate ([0.257, 3.68])**: The model predicted this category correctly 10 times, but incorrectly predicted 14 instances as medium-low crime, and failed to predict 3 instances which were actually high crime ([3.68, 89]).
+- **High Crime Rate ([3.68, 89])**: All 25 high crime instances were correctly identified, with no misclassifications either from or to this category.
+
+**Key Observations from the results**:
+
+- The model is particularly effective at correctly identifying the high crime rate category.
+- There's some confusion between the low and medium-low crime rate categories, as well as between medium-low and medium crime rate categories.
+- The model does not misclassify any non-high crime rates as high crime, which might be particularly important if the goal is to accurately identify high-crime areas.
+
+## K-Means Clustering
+
+Next, I'm going to perform k-means clustering on the standardized Boston dataset to identify clusters within the data.
+
+```{r}
+# Reload the Boston dataset
+data("Boston")
+
+# Standardizing the dataset
+scaled_Boston <- scale(Boston)
+
+# Calculating the distances between observations
+distances <- dist(scaled_Boston)
+
+# Installing and loading the factoextra package
+if (!require(factoextra)) {
+  install.packages("factoextra")
+  library(factoextra)
+}
+
+# Determining the optimal number of clusters using the elbow method
+set.seed(123)
+fviz_nbclust(scaled_Boston, kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2) +
+  labs(subtitle = "Elbow method")
+
+# Running k-means with the determined optimal number of clusters
+set.seed(123)
+kmeans_result <- kmeans(scaled_Boston, centers = 4)
+
+# Creating a data frame for plotting
+plot_data <- as.data.frame(scaled_Boston)
+plot_data$cluster <- factor(kmeans_result$cluster)
+
+# Visualizing the clusters using two variables from the dataset
+ggplot(plot_data, aes(x = rm, y = lstat)) +
+  geom_point(aes(color = cluster)) +
+  labs(color = 'Cluster')
+```
+
+1. **Cluster Distribution**: The plot shows how the observations are grouped into four different clusters. Each cluster is represented by a different color.
+2. **Cluster Characteristics**:
+  - Cluster 1: Characterized by lower rm values and higher lstat values, indicating smaller houses in areas with a higher proportion of lower-status population.
+  - Cluster 2: Moderate rm values and lstat values, suggesting average-sized rooms with a moderate lower-status population.
+  - Cluster 3: Higher rm values and moderate to low lstat values, indicating larger houses with a lower proportion of lower-status population.
+  - Cluster 4: Moderate to high rm values but very low lstat values, suggesting these areas have larger houses and very low lower-status population proportions.
+3. **Correlation Inference**: There appears to be a negative correlation between rm and lstat, as expected. Areas with more rooms tend to have a lower percentage of lower-status population.
+4. **Cluster Separation**: The separation between clusters indicates how distinct the groups are based on the two variables used. For example, Cluster 4 is well separated from the others, suggesting that areas with larger houses and very low lower-status proportions are quite distinct from other areas.
+5. **Outliers**: Any points that are far away from their cluster centers might be considered outliers. For instance, any points in Cluster 1 that are far into the region of Cluster 3 could be unusual observations worth further investigation.
+6. **Potential for Further Analysis**: The clustering suggests that there may be underlying patterns in the Boston housing data related to room size and socio-economic status. These patterns could be explored further with additional socio-economic variables, or by looking at how these clusters relate to other outcomes like median home values.
+
+## Bonus
+
+```{r}
+library(MASS)
+data("Boston")
+
+# Standardizing the dataset
+scaled_Boston <- scale(Boston)
+```
+
+Next, performing the K-means clustering
+
+```{r}
+set.seed(123) # for reproducibility
+# According to the assignment,  a reasonable number of clusters is >2, here I'm choosing 4
+kmeans_result <- kmeans(scaled_Boston, centers = 4)
+```
+
+Now, performing LDA using clusters as target classes
+
+```{r}
+# Adding the cluster assignments as a factor to the Boston data
+Boston$cluster <- factor(kmeans_result$cluster)
+
+# Fitting LDA model using the clusters as target classes
+library(MASS) # for LDA
+lda_fit <- lda(cluster ~ ., data = Boston)
+```
+
+Finally, visualizing the results with Biplot
+
+```{r}
+# Biplot for LDA with arrows for original variables
+plot(lda_fit)
+
+# Examining the model's coefficients
+lda_fit$scaling
+
+```
+
+The LDA scaling coefficients reveal that nox (nitric oxides concentration) is the predominant variable influencing the separation of clusters on the first discriminant (LD1), indicating its strong role in differentiating the clusters. rm (average number of rooms) emerges as the most significant for the second discriminant (LD2), suggesting its importance in further distinguishing between clusters. On the third discriminant (LD3), chas (proximity to Charles River) has the highest coefficient, highlighting its influence in cluster separation at this level. These variables—nox, rm, and chas—are therefore the most critical linear separators for the clusters, with their varying scales and units contributing to their discriminant weights.
+
+## Super-Bonus
+
+Now, the goal is to project the train data using the LDA model's scaling matrix and then visualize the projections in 3D.
+
+```{r}
+library(dplyr)
+
+# Here 'train' is the training set and 'lda_fit' is my LDA model from before
+model_predictors <- Boston[, -which(names(Boston) == "cluster")]
+
+# Checking the dimensions
+dim(model_predictors)
+dim(lda_fit$scaling)
+
+# Matrix multiplication to get the projections
+matrix_product <- as.matrix(model_predictors) %*% lda_fit$scaling
+matrix_product <- as.data.frame(matrix_product)
+```
+
+Now, onto the 3D visualization...
+
+```{r}
+# Installing and loading the plotly package
+if (!require(plotly)) {
+  install.packages("plotly")
+  library(plotly)
+}
+
+# Creating a 3D scatter plot using the LDA projections
+plot_ly(x = matrix_product$LD1, y = matrix_product$LD2, z = matrix_product$LD3, type = 'scatter3d', mode = 'markers', color = Boston$cluster) %>%
+  layout(scene = list(xaxis = list(title = 'LD1'),
+                      yaxis = list(title = 'LD2'),
+                      zaxis = list(title = 'LD3')))
+```
+
+**Interpretation**:
+
+- *Cluster Delineation*: The plot suggests that the clusters have distinct regions in the multidimensional space defined by the LDA, although there is some overlap, especially between clusters 1 and 2. The distinctness of these clusters in the 3D space confirms the separation achieved by the LDA.
+- *Dimensionality Reduction*: LDA has effectively reduced the dimensionality of the data to three dimensions, which captures the majority of the variance between the clusters.
+- *Cluster Characteristics*: Clusters 3 and 4 appear to be more spread along the LD2 and LD3 axes, while clusters 1 and 2 are more compact. The spread could indicate variability within the clusters concerning the underlying variables.
+- *Influential Variables*: While the plot doesn't directly show the contribution of each variable, the spread and orientation of the clusters can be partially attributed to the most influential variables identified previously, such as nox, rm, and chas.
+- *Comparison with Crime Classes*: If compared to a similar plot colored by crime classes, one might observe whether clusters defined by socio-economic factors (like crime rate) align with those determined through unsupervised k-means clustering. Similarities might suggest a relationship between crime rates and the variables used for clustering, while differences could indicate that the clustering captures other aspects of the data.
+

@@ -1,0 +1,260 @@
+# Chapter 5: Dimensionality reduction techniques
+
+In this chapter, we are working with the Human Development dataset, examining a variety of indicators that reflect the status of education, labor force participation, economic prowess, and gender equality across various countries. In this chapter, the new techniques used include standardization — a crucial step to neutralize scale discrepancies and ensure an unbiased analysis — as well as Principal Component Analysis (PCA) to distill the essence of the data. PCA is employed both before and after standardization, to understand the most influential factors shaping human development patterns.
+
+This assignment not only further improved my statistical understanding but also gave me valuable insights into the socio-economic web that binds countries together. Through this assignment, I've become more comfortable with the intricacies of dimensionality reduction, used to make abstract concepts tangible.
+
+```{r}
+date()
+
+library(tidyverse)
+```
+
+## Step 1: Graphical Overview and Summaries of the Variables
+
+```{r}
+# Loading the 'human' dataset
+human <- read_csv("/Users/annatolonen/Desktop/IODS-project/data/human.csv")
+
+# Converting 'human' from a tibble to a standard data frame
+human <- as.data.frame(human)
+
+# Moving country names to rownames
+rownames(human) <- human$Country
+human <- human[,-which(names(human) == "Country")]
+
+# Statistical summaries for each variable
+summary(human)
+
+# Checking for missing values
+if(any(is.na(human))) {
+  stop("Missing values found in the dataset. Please address these before proceeding.")
+}
+```
+
+For the graphical overview, I'm first going to examine the **distribution of each variable** in the dataset using faceted histograms. This approach allows us to see the distribution of each variable side by side for easy comparison.
+
+```{r}
+library(ggplot2)
+library(reshape2)
+
+# Creating a temporary data frame with country names as a column
+human_temp <- human
+human_temp$Country <- rownames(human)
+
+# Melting the temporary data for faceting
+human_long <- melt(human_temp, id.vars = "Country")
+
+# Creating faceted histograms
+ggplot(human_long, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  labs(x = "Value", y = "Frequency", title = "Distribution of Variables in the Human Dataset")
+```
+
+
+**Interpretation**:
+
+- **Female Secondary Education**: This variable shows a bimodal distribution with peaks around 25% and 100%. This might indicate a division between countries with low and high rates of secondary education attainment among females.
+- **Female Labor Force Participation**: The distribution is roughly bell-shaped but skewed to the right, with a peak around 25-30%. It suggests that in many countries, a smaller proportion of females participate in the labor force compared to males.
+- **Expected Years of Education**: This distribution appears to be right-skewed with most countries falling in the range of 10 to 15 years, suggesting that in many countries people are expected to complete secondary education and possibly some tertiary education.
+- **Life Expectancy**: The histogram for life expectancy shows a left-skewed distribution, with most countries having a life expectancy of around 70 to 80 years, indicating generally good health conditions in most of the countries.
+- **GNI per Capita**: Gross National Income per capita shows a highly right-skewed distribution, with most countries clustered at the lower end of the income scale and a few outliers with very high income. This reflects the economic disparity among different countries.
+- **Maternal Mortality Ratio**: This variable is also right-skewed, with most countries having a low to moderate maternal mortality ratio, and a few countries have very high ratios, indicating significant health risks associated with childbirth in those places.
+- **Adolescent Birth Rate**: The distribution of adolescent birth rates appears to be right-skewed, suggesting that while many countries have low rates, there are still a number of countries with high rates of adolescent births.
+- **Female Representation in Parliament**: This variable has a somewhat uniform distribution, with a slight peak around 10-20%. This indicates varied levels of female political empowerment across different countries, with many countries having relatively low female representation.
+
+Overall, the skewness in many of the variables indicates that there are disparities among countries, with a significant number of countries having lower indicators of human development and gender equality. The bimodal distribution in female secondary education suggests a gap between countries with very high and very low educational attainment for females.
+
+Now, to explore the **relationships between the variables**, I'm going to use Scatter Plot Matrix (SPLOM)...
+
+```{r warning=FALSE, message=FALSE}
+# Creating an enhanced scatter plot matrix using GGally
+library(GGally)
+
+# Since I've already set country names as row names, I'll drop the row names because ggpairs expects a data frame without row names.
+human_no_rownames <- human
+rownames(human_no_rownames) <- NULL
+
+# Using ggpairs to create the scatter plot matrix (I'm using ggpairs over basic plot functions to efficiently visualize the pairwise relationships and distribution of each variable, facilitating a comprehensive initial assessment.)
+ggpairs(human_no_rownames, 
+        lower = list(continuous = wrap("points", size = 0.5, alpha = 0.5)),
+        upper = list(continuous = wrap("cor", size = 4)),
+        diag = list(continuous = wrap("barDiag")),
+        axis.labels = 'show', 
+        axis.label.size = 2, 
+        legend.size = 5  
+) +
+  theme_bw() +  
+  theme(
+    text = element_text(size = 4),
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Rotating the x axis labels for better visibility
+  )
+```
+
+**Observations**:
+
+- **Expected Years of Education and Life Expectancy**: There's a strong positive correlation (0.789), suggesting countries with higher education expectations tend to have higher life expectancies.
+- **Maternal Mortality Ratio and Adolescent Birth Rate**: Both show strong negative correlations with Life Expectancy and Expected Years of Education, indicating that higher maternal and adolescent birth rates are associated with lower life expectancy and educational attainment.
+- **Female Labor Force Participation**: The correlation with other variables is weaker, indicating that female labor force participation might be influenced by factors not captured by the other variables in this dataset.
+- **GNI per Capita**: There's a moderate positive correlation with Expected Years of Education and Life Expectancy, which aligns with the notion that higher national income levels can support better education and health outcomes.
+
+## Step 2: Principal Component Analysis (PCA) on raw data
+
+Now, I will, as per the assignment instructions, perform Principal Component Analysis (PCA) on the raw (non-standardized) human data. The goal is to show the variability captured by the principal components and to visualize the data using a biplot that displays the observations by the first two principal components.
+
+```{r}
+library(ggfortify)
+library(ggrepel)
+
+# Performing PCA on Raw Data
+pca_raw <- prcomp(human, scale. = FALSE)
+
+# Extracting PCA loadings
+loadings_matrix <- as.data.frame(pca_raw$rotation)
+
+# Getting the proportion of variance explained by the PCs
+explained_variance <- round(pca_raw$sdev^2 / sum(pca_raw$sdev^2) * 100, 2)
+
+# Biplot for Raw Data PCA without automatic labeling
+biplot_pca <- autoplot(pca_raw, data = human, label = FALSE, alpha = 0.5) # Set label to FALSE
+
+# Adding arrows for loadings
+biplot_with_arrows <- biplot_pca + 
+  geom_segment(data = loadings_matrix,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(type = "closed", length = unit(0.1, "inches")),
+               color = "blue", size = 1)
+
+# Using ggrepel for label placement without duplication and with smaller font size
+biplot_with_arrows <- biplot_with_arrows +
+  geom_text_repel(data = loadings_matrix,
+                  aes(x = PC1, y = PC2, label = rownames(loadings_matrix)),
+                  size = 3, 
+                  box.padding = unit(0.2, "lines"),  
+                  point.padding = unit(0.3, "lines"),  
+                  segment.size = 0.2)
+
+# Axis titles with PC values and variance explained
+biplot_with_arrows <- biplot_with_arrows + 
+  labs(x = paste("PC1 -", explained_variance[1], "% Variance"),
+       y = paste("PC2 -", explained_variance[2], "% Variance"))
+
+# Printing the plot
+biplot_with_arrows
+```
+
+**Interpretation**:
+
+The first principal component (PC1) accounts for an overwhelming majority of the variance (99.99%), indicating that a single dimension captures almost all the information in the data. This is a strong indication that one or a few variables with large numeric scales are dominating the PCA, which is a common occurrence when the variables are not standardized.
+
+In this biplot, the arrows represent the original variables, with their direction and length indicating how each variable contributes to the principal components. The arrows pointing towards the right, along the PC1 axis, correspond to 'GNI per Capita', 'Life Expectancy', 'Female Secondary Education', and 'Female Labor Force Participation', suggesting these variables are positively correlated with each other and significantly contribute to the variance in PC1. This could imply that countries with higher GNI per capita tend to also have higher life expectancy, greater female secondary education, and higher female labor force participation.
+
+Conversely, the arrow for 'Maternal Mortality Ratio' is directed almost entirely down the PC2 axis, indicating that this variable is somewhat independent of the others and contributes uniquely to the second principal component. This suggests that the maternal mortality ratio varies in a way that is not captured by the variation in PC1.
+
+The cluster of points (countries) near the center of the biplot suggests that many countries have similar scores on these components, indicating comparable levels of the socio-economic indicators measured. Countries further away from the center along PC1 or PC2 represent outliers with significantly different profiles from the average.
+
+## Step 3: Standardizing the variables and repeating the PCA
+
+Now, I will standardize the variables of the human dataset to give each variable equal weight in our PCA. After standardization, I will perform PCA again to identify the principal components that best capture the variability in our data.
+
+```{r}
+library(factoextra)
+
+# PCA on Standardized Data
+human_standardized <- scale(human)
+pca_standardized <- prcomp(human_standardized, scale. = TRUE)
+
+# Summary of PCA - Standardized Data
+explained_variance <- round(pca_standardized$sdev^2 / sum(pca_standardized$sdev^2) * 100, 2)
+
+# Biplot for Standardized Data PCA
+fviz_pca_biplot(pca_standardized, label = "var", repel = TRUE,
+                ggtheme = theme_minimal(), labelsize = 3,
+                pointsize = 2, alpha = 0.5, col.var = "blue",
+                xlab = paste("PC1 -", explained_variance[1], "% of Variance"),
+                ylab = paste("PC2 -", explained_variance[2], "% of Variance"))
+```
+*The biplot of PCA on standardized data captures the interplay between development indicators such as education and health (PC1) and gender equality and reproductive health (PC2), reflecting the multifaceted nature of human development across different countries.*
+
+**Interpretation and comparison to raw data PCA**:
+The principal component analysis (PCA) on the non-standardized data portrayed an atypical scenario where the first principal component (PC1) dominated the variance (99.99%). This suggested that the scale of certain variables, likely those with larger numerical ranges like 'GNI per Capita', heavily influenced the analysis. Such a result often obscures the true relationships between variables and can misrepresent the underlying structure of the data.
+
+After standardizing the variables, the PCA results are notably different. The first two principal components now explain a combined total of approximately 72.63% of the variance, with PC1 accounting for 57.03% and PC2 for 15.60%. This indicates a more equitable distribution of variance across the components, highlighting the multidimensional nature of human development. The standardization process gives each variable equal weight by adjusting for scale differences, thereby allowing for a more accurate reflection of the data's structure.
+
+In the standardized biplot, *'Female Secondary Education'*, *'Life Expectancy'*, and *'Expected Years of Education'* are prominent along PC1, suggesting that this component might represent a general development factor, encompassing health and education. In contrast, *'Maternal Mortality Ratio'* and *'Adolescent Birth Rate'* are depicted with significant negative loadings on PC2, contrasting reproductive health challenges against the positive social advancements indicated by *'Female Labor Force Participation'* and *'Female Representation in Parliament'*. This biplot emphasizes the intersection between socio-economic status, health, and gender equality, offering insights into how these aspects co-vary across nations.
+
+The difference in the results with and without standardization underscores why it is crucial to standardize variables in PCA when they are on different scales. Standardization mitigates the risk of misinterpretation that can arise from the disproportionate influence of higher-magnitude variables. Consequently, the analysis with standardized data is more reliable for understanding the true relationships between the variables and for making inferences about the underlying phenomena they represent.
+
+## Step 4: Personal interpretations of the first two principal component dimensions
+
+The biplot from the PCA on standardized human data depicts a multidimensional snapshot of socio-economic and health indicators across countries. The first principal component (PC1), which explains 57.03% of the variance, seems to capture an overarching dimension of human development. The positive loadings on PC1 for 'Female Secondary Education', 'Life Expectancy', and 'Expected Years of Education' suggest that this principal component might represent the general well-being and development status of a country. Countries with higher scores on PC1 are likely those with better educational outcomes, longer life expectancy, and overall higher development indices.
+
+The second principal component (PC2) explains 15.60% of the variance and appears to capture aspects related to reproductive health and gender equality. The positive direction of 'Female Labor Force Participation' and 'Female Representation in Parliament' on PC2 could be interpreted as a dimension of gender empowerment, reflecting a country's progress in integrating women into the workforce and political spheres. Conversely, the negative direction of 'Maternal Mortality Ratio' and 'Adolescent Birth Rate' suggests that this component also contrasts countries with reproductive health challenges against those with more favorable conditions for women's health and empowerment.
+
+These two dimensions, represented by PC1 and PC2, seem to encapsulate the interplay between educational and health status, economic conditions, and gender equality measures, providing a nuanced landscape of human development. Countries situated further along PC1 and PC2 in the positive direction might be those with better performance in these indicators, while those further in the negative direction might face challenges in these areas. This interpretation aligns with the broader understanding that development is a multifaceted phenomenon, influenced by a complex mix of economic, social, and health factors.
+
+## Step 5: MCA on the tea data
+
+```{r}
+# Loading the tea dataset
+tea <- read.csv("https://raw.githubusercontent.com/KimmoVehkalahti/Helsinki-Open-Data-Science/master/datasets/tea.csv", stringsAsFactors = TRUE)
+
+# Converting 'age' into a categorical variable (binned age groups)
+tea$age_group <- cut(tea$age, 
+                     breaks = c(15, 24, 34, 44, 54, 64, Inf), 
+                     labels = c("15-24", "25-34", "35-44", "45-54", "55-64", "65+"), 
+                     right = FALSE)
+tea$age_group <- factor(tea$age_group)
+
+# Removing the original 'age' variable now that we have 'age_group'
+tea_mca <- tea[, !names(tea) %in% "age"]
+
+# Loading necessary libraries
+library(FactoMineR)
+library(factoextra)
+library(dplyr)
+library(ggplot2)
+
+# Performing MCA on the preprocessed dataset
+mca_results <- MCA(tea_mca, graph = FALSE)
+
+# Creating a data frame with variable names and total contributions
+var_contributions <- as.data.frame(mca_results$var$contrib)
+var_contributions$variable <- rownames(var_contributions)
+var_contributions$total_contrib <- rowSums(var_contributions[ , 1:5])
+
+# Identifying the top contributing variables
+top_contrib_vars <- var_contributions %>%
+                    arrange(desc(total_contrib)) %>%
+                    head(20) %>%
+                    .$variable
+
+# Visualizing the variable biplot with a selection of contributing variables
+fviz_mca_var(mca_results, choice = "var", 
+             repel = TRUE,  
+             ggtheme = theme_minimal(),
+             labelsize = 3,
+             pointsize = 2, 
+             alpha = 0.5)  
+
+
+```
+
+
+**Interpretation**:
+
+- *Dimension 1 (Dim1)*: Representing 6.1% of the variance, it seems to be associated with factors related to the social context of tea consumption, such as "tea time," "tearoom," "friends," and "pub." This suggests that the first dimension might be capturing the social dimension of tea drinking habits — whether people prefer to drink tea alone, with friends, or in public places.
+- *Dimension 2 (Dim2)*: Accounting for 5.4% of the variance, appears to correlate with personal preferences and perceptions, such as "slimming," "healthy," "exciting," and "sophisticated." This indicates that the second dimension may relate to the personal attitudes and beliefs about tea, including health considerations and the personal image associated with tea drinking.
+- *Demographic Influence*: The prominence of "age_group" and "SPC" (socio-professional category) on the plot suggests a strong demographic influence on tea consumption patterns. For example, younger age groups may be associated with different tea drinking behaviors or perceptions compared to older age groups.
+- *Variable Clusters*: The clustering of variables like "feminine," "friendliness," "exciting," and "friends" might imply a link between the perception of tea as a beverage suitable for social gatherings and its association with certain personality traits or gendered perceptions.
+- *Sparse Regions*: Some areas of the plot are less dense, suggesting that certain variables do not cluster strongly with others, indicating unique or less common tea drinking attributes or perceptions.
+- *Interpreting Arrows*: The direction and length of the arrows indicate how each variable contributes to the two dimensions. For example, "slimming" and "healthy" point in similar directions, which might suggest that respondents who view tea as a slimming aid also consider it healthy.
+
+**Comments on the Biplot Output**:
+
+- The biplot reveals that tea consumption habits and perceptions are influenced by a complex interplay of social contexts, personal beliefs, and demographic factors.
+- The spread of variables across the two dimensions indicates that while there are discernible patterns in the data, the relationships are nuanced and not strictly dichotomous.
+- Some variables such as "age_group," "SPC," and "frequency" have a strong presence in defining the dimensions, while others are more central, suggesting their influence is more nuanced across the dimensions.
+- The overlap of some labels, particularly in the center of the plot, indicates the need for careful interpretation as these variables may not be as distinct in their contributions to the dimensions.

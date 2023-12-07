@@ -1,0 +1,170 @@
+# Chapter 6: Analysis of longitudinal data
+
+## Implementing the analyses of Chapter 8 of MABS using the RATS data
+
+Here we will be working with longitudinal data from a study on rats, which were divided into different groups and put on various diets. Their body weights were recorded repeatedly over a nine-week period. The study's primary focus is to assess whether the growth profiles differ across these dietary groups. This information is foundational for conducting analyses on how the different diets may affect the rats' growth over time.
+
+```{r}
+# Loading required libraries
+library(ggplot2)
+library(dplyr)
+library(lme4)
+
+# Setting chunk options to ensure all R code is visible in the knitted document
+knitr::opts_chunk$set(echo = TRUE)
+
+# Loading and preparing the RATS data
+rats_data <- read.csv("/Users/annatolonen/Desktop/IODS-project/data/RATS_long.csv", header = TRUE)
+rats_data$ID <- factor(rats_data$ID)
+rats_data$Group <- factor(rats_data$Group)
+rats_data$Time <- factor(rats_data$Time)
+```
+
+Now that the data has been prepared, I'm going to move onto graphical displays of the longitudinal data in order to expose patterns in the data.
+
+```{r}
+# Individual Response profiles
+# Plotting individual response profiles
+ggplot(rats_data, aes(x = Time, y = value, group = ID, color = Group)) + 
+  geom_line() +
+  labs(title = "Individual Growth Trajectories", x = "Time Point", y = "Body Weight")
+```
+
+**Interpretation**:
+The individual response profile plot for the RATS data indicates a clear distinction between the groups over time. Group 1 (red lines) shows consistently lower values throughout the period, suggesting a different response pattern compared to groups 2 and 3. Both groups 2 (green lines) and 3 (blue lines) start with similar values to group 1 but diverge over time, with group 3 generally having the highest values. This separation may reflect different treatment effects or progression rates if this is a clinical study. The trends suggest a possible interaction effect between treatment (group) and time, which could be explored with a statistical interaction term in a mixed-effects model or a similar analytical approach.
+
+Now onto standardizing the data and repearing the plotting of individual response profiles on the standardized data.
+
+```{r}
+# Standardizing the 'value' variable
+rats_data$value_z <- scale(rats_data$value)
+
+# Plotting the standardized individual response profiles
+ggplot(rats_data, aes(x = Time, y = value_z, group = ID, color = Group)) +
+  geom_line() +
+  labs(title = "Standardized Individual Profiles", x = "Time", y = "Standardized Value")
+```
+
+The plot looks exactly the same as with unstandardized data. I think this means that the data across all groups and time points have similar variance and are on the same scale. Since standardization didn't change the visual interpretation, comparing groups over time does not require standardization to control for scale differences. Therefore, I can proceed with statistical analyses without the need for standardization as a prerequisite.
+
+```{r}
+# Calculating summary statistics (mean and standard error) by group and time
+rats_summary_stats <- rats_data %>%
+  group_by(Group, Time) %>%
+  summarise(
+    mean_value = mean(value),
+    std_error = sd(value) / sqrt(n()),
+    .groups = "drop" # Avoids carrying over grouping to the next operations
+  )
+
+# Plot mean growth profiles with error bars representing standard errors
+ggplot(rats_summary_stats, aes(x = Time, y = mean_value, group = Group, color = Group)) +
+  geom_errorbar(aes(ymin = mean_value - std_error, ymax = mean_value + std_error), width = 0.2) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Mean Growth Profiles by Diet Group Over Time", x = "Time Point", y = "Mean Body Weight (+/- SE)")
+
+```
+**Interpretation**: Error bars provide an estimate of variability around the mean at each time point. Consistent patterns or deviations from group trends can suggest differences in diet efficacy or variability in response to diet.It seems that in this case Group 3, which is represented by the blue line, has consistently higher mean body weights throughout the study period. This could indicate that the diet associated with Group 3 is more effective at promoting growth. On the other hand, Group 1, shown in red, has the lowest mean body weights, which may suggest that its diet is less effective. Additionally, the overlapping error bars between Groups 2 and 3 at most time points suggest that while their mean body weights are different, the differences are not always statistically significant. The clear separation of Group 1 from the other two groups across all time points, however, indicates a statistically significant difference.
+
+```{r}
+# Creating boxplots of body weight by group at each time point to potentially show distribution, central tendency, and outliers
+ggplot(rats_data, aes(x = Time, y = value, fill = Group)) +
+  geom_boxplot(outlier.shape = 1) +
+  labs(title = "Body Weight Distribution by Diet Group and Time Point", x = "Time Point", y = "Body Weight")
+```
+**Interpretation**: These boxplots synthesize individual growth trends into a single mean value per rat,allowing for direct comparison of central tendency and variability between diet groups. The results indicate that there is a progressive increase in body weight for all diet groups over time, with Group 3 showing the highest median body weights at almost every time point. The spread of the data points, as indicated by the interquartile range and the whiskers, suggests more variation within Groups 2 and 3 compared to Group 1. The presence of outliers, particularly in Group 3, could point to individual rats that are responding differently to the diet than the majority, either due to biological variability or other unmeasured factors. Furthermore, the consistent upward trend across all groups confirms the expected growth over time, but the varying slopes of the medians across the groups suggest differential growth rates, potentially attributable to the dietary differences.
+
+```{r}
+# Calculating the mean value for each individual across all time points
+rats_summary <- aggregate(value ~ ID + Group, data = rats_data, FUN = mean)
+
+# Renaming the aggregated value to 'mean_value'
+names(rats_summary)[names(rats_summary) == "value"] <- "mean_value"
+
+# Creating boxplots of the mean summary measure for each group
+ggplot(rats_summary, aes(x = Group, y = mean_value, fill = Group)) +
+  geom_boxplot() +
+  labs(title = "Boxplots of Mean Summary Measure by Group", x = "Group", y = "Mean Value")
+
+```
+
+**Interpetation**:
+
+- *Group 1*: This group has the lowest mean value, indicated by the position of the median within the box (the line inside the box), and also shows the least variability, as seen by the shorter box and smaller range of the whiskers. There are some individual observations that are outliers below the main cluster of the data.
+- *Group 2*: The mean value for Group 2 is higher than that of Group 1 and the group shows greater variability, as the box is longer, and the whiskers extend further, particularly upwards.
+- *Group 3*: This group has the highest mean value, which is considerably higher than the other two groups. The variability in this group is less than in Group 2 but more than in Group 1, as reflected by the interquartile range (the height of the box). There are also a couple of outliers, similar to Group 1.
+
+The boxplot suggests that the treatment or condition associated with Group 3 might be leading to higher mean values on the measured response compared to the other two groups. It also indicates that there's more variability in the response within Groups 2 and 3 compared to Group 1. The presence of outliers could warrant further investigation to understand why those individual responses are different from the rest.
+
+```{r}
+# Statistical analysis to compare mean body weight between diet groups
+anova_result <- aov(mean_value ~ Group, data = rats_summary)
+summary(anova_result)
+```
+
+**Interpretation**: ANOVA results suggest significant differences in mean body weight between diet groups. In other words, the variation in body weight among the different diet groups is statistically significant and not likely due to random chance. Specifically, the F value of 88.07 is large and, combined with the very small p-value (2.76e-08), provides strong evidence against the null hypothesis of no difference in means across the groups. Consequently, we can infer that diet has a measurable impact on the growth of the rats. Given the degrees of freedom for the group is 2, this indicates that at least one group's mean body weight is significantly different from the others, warranting further post-hoc analysis to pinpoint the exact nature of these differences."
+
+```{r}
+# Post-hoc test to compare mean differences between each pair of diet groups
+posthoc_result <- TukeyHSD(anova_result)
+
+# Mixed-effects model to account for non-independence of repeated measures within rats
+mixed_model <- lmer(value ~ Time * Group + (1 | ID), data = rats_data)
+summary(mixed_model)
+```
+
+**Interpretation**: The mixed-effects model reveals how diet, time, and their interaction affect body weight,controlling for individual variability among rats. The results here indicate that both time and diet group, as well as their interaction, have significant effects on body weight, as evidenced by the estimated coefficients for these terms in the model output. Notably, the interaction terms, such as TimeWD15:Group2, suggest that the effect of time on body weight is different for each diet group. This implies that the rate of growth and the overall growth trajectory are unique to each diet group. For example, the positive coefficients for the interaction terms associated with Group 2 and Group 3 suggest these groups experienced an increase in body weight over time compared to Group 1. The fact that the model includes a random intercept for each ID allows for individual baseline body weight differences among rats to be accounted for, which can improve the model's accuracy in predicting individual responses to diet over time.
+
+## Implementing the analyses of Chapter 9 of MABS using the BPRS data
+
+Here we are working with data tracking the Brief Psychiatric Rating Scale (BPRS) scores of patients undergoing different treatments over a set period. The data tracks the effectiveness of treatments across different time points, allowing for the analysis of changes in psychiatric symptoms over time.
+
+```{r}
+# Loading the BPRS dataset
+BPRS <- read.csv("/Users/annatolonen/Desktop/IODS-project/data/BPRS_long.csv")
+
+# Prepare the data by converting factor columns to factor type
+BPRS <- BPRS %>%
+  mutate(
+    subject = as.factor(subject),
+    treatment = as.factor(treatment),
+    week = as.factor(week)
+  )
+
+# Glimpse of the BPRS data
+glimpse(BPRS)
+```
+
+
+```{r}
+# Plotting individual response profiles for BPRS
+ggplot(BPRS, aes(x = week, y = value, group = subject, color = treatment)) +
+  geom_line() +
+  theme_bw() +
+  labs(title = "Individual Response Profiles", x = "Week", y = "BPRS Score")
+```
+**Interpretation**:
+
+The plot shows individual response profiles over time for two different treatment groups in the BPRS dataset. The BPRS score is a measure of psychiatric symptoms, and lower scores generally indicate fewer or less severe symptoms. Here, we observe variability within and between treatment groups over the weeks. There are spikes in BPRS scores for some individuals at different time points, which could indicate episodes of symptom exacerbation. The red lines represent one treatment group and the cyan lines represent another. Without further context, it's hard to determine the causes of these variations, but they could be due to individual responses to treatment, measurement error, or other factors not captured in the data.
+
+```{r}
+# Fitting a linear model for BPRS
+BPRS_reg <- lm(value ~ week + treatment, data = BPRS)
+summary(BPRS_reg)
+```
+
+**Interpretation**:
+The summary output from the linear model shows that there is a statistically significant decrease in BPRS scores over the weeks, indicating an overall improvement in the psychiatric symptoms measured by the BPRS scale. This is shown by the negative coefficients for weeks 2 through 8, which have p-values less than 0.05, signifying that these time points have significantly lower scores than the baseline (week 0). The coefficient for treatment2 is not statistically significant (p-value = 0.66063), suggesting that there is no significant difference between the two treatment groups regarding their effect on BPRS scores when not considering the time effect. The residuals of the model indicate the differences between the observed and predicted BPRS scores, with a range from approximately -23.7 to 48.4, which could suggest variability in individual responses to treatment or other unmeasured factors.
+
+```{r}
+# Fitting a mixed-effects model for BPRS
+BPRS_lme <- lmer(value ~ week + treatment + (1 | subject), data = BPRS, REML = FALSE)
+summary(BPRS_lme)
+```
+
+**Interpretation**:
+The output from the mixed-effects model indicates that, like the linear model, there is a significant decrease in BPRS scores over the weeks. This decrease is consistent across weeks 2 through 8, similar to the linear model results. However, the mixed-effects model also accounts for variability among subjects with random effects, which are captured in the variance and standard deviation under 'Random effects'. The standard deviation of the intercept for subject suggests individual differences in baseline BPRS scores.
+
+The non-significant coefficient for treatment2 again indicates that the difference between the two treatments is not statistically significant when considering the entire study period. The correlation of fixed effects shows that the weeks are not independent of each other; however, treatment is not correlated with the week effects, suggesting that the progression over time is not different between treatments.
+
